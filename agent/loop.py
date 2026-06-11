@@ -1,8 +1,6 @@
 from rich.console import Console
 
-from config import MAX_STEPS
-
-from agent.llm import LLM
+from prompts.system_prompt import SYSTEM_PROMPT
 from agent.parser import Parser
 from agent.executor import Executor
 from agent.memory import Memory
@@ -13,154 +11,272 @@ console = Console()
 
 class AgentLoop:
 
-    def __init__(self):
+    def __init__(self, llm):
 
-        self.llm = LLM()
+        self.llm = llm
+
         self.parser = Parser()
+
         self.executor = Executor()
+
         self.memory = Memory()
 
     def run(self, user_input: str):
 
         self.memory.add_user(user_input)
 
-        current_input = user_input
+        MAX_STEP = 10
 
-        modify_keywords = [
+        final_answer = ""
 
-            "增加",
-            "添加",
-            "修改",
-            "删除",
-            "重构",
-            "修复",
-            "新增",
-            "replace",
-            "fix"
-
-        ]
-
-        has_write = False
-
-        for step in range(MAX_STEPS):
+        for step in range(MAX_STEP):
 
             console.print()
-            console.print(
-                f"[cyan]========== Step {step + 1} ==========[/cyan]"
+
+            console.rule(f"[yellow]Step {step + 1}")
+
+            #
+            # 构造 messages
+            #
+
+            messages = [
+
+                {
+
+                    "role": "system",
+
+                    "content": SYSTEM_PROMPT
+
+                }
+
+            ]
+
+            messages.extend(
+
+                self.memory.get_messages()
+
             )
 
-            response = self.llm.chat(
-                current_input,
-                history=self.memory.get()
-            )
+            #
+            # 调用模型
+            #
+
+            try:
+
+                response = self.llm.chat(messages)
+
+            except Exception as e:
+
+                console.print(f"[red]{e}[/red]")
+
+                return str(e)
 
             console.print()
-            console.print("[yellow]LLM 输出：[/yellow]")
+
+            console.print("[cyan]LLM 输出：[/cyan]")
+
             console.print(response)
+
+            #
+            # 保存 assistant 原始输出
+            #
+
+            self.memory.add_assistant(response)
+
+            #
+            # JSON 解析
+            #
 
             action = self.parser.parse(response)
 
-            # ------------------------
-            # Final Guard
-            # ------------------------
-
-            if (
-                action.get("action") == "final"
-                and any(
-                    k in user_input
-                    for k in modify_keywords
-                )
-                and not has_write
-            ):
+            if action is None:
 
                 console.print()
-                console.print(
-                    "[red]检测到修改任务，但尚未调用 write_file，要求模型继续规划。[/red]"
+
+                console.print("[red]JSON 解析失败[/red]")
+
+                self.memory.add_tool(
+
+                    "JSON解析失败，请重新输出合法JSON。"
+
                 )
-
-                current_input = """
-用户要求修改代码。
-
-你还没有真正修改文件。
-
-必须：
-
-1. read_file
-
-2. 根据文件生成完整修改版本
-
-3. write_file
-
-4. final
-
-请重新输出 JSON。
-"""
 
                 continue
 
-            # ------------------------
-            # Final
-            # ------------------------
+            #
+            # FINAL
+            #
 
             if action.get("action") == "final":
 
-                answer = action.get("answer", "")
+                final_answer = action.get(
 
-                self.memory.add_assistant(answer)
+                    "answer",
+
+                    ""
+
+                )
 
                 console.print()
+
                 console.print("[green]任务完成[/green]")
 
-                return answer
+                return final_answer
 
-            # ------------------------
-            # Tool Execute
-            # ------------------------
-
-            if action.get("action") == "write_file":
-
-                has_write = True
+            #
+            # Tool
+            #
 
             result = self.executor.execute(action)
 
             console.print()
 
-            if result.get("success"):
+            console.print("[green]工具执行结果：[/green]")
 
-                console.print("[green]工具执行成功[/green]")
-                console.print(result.get("result"))
+            #
+            # read_file 特殊处理
+            #
 
-            else:
+            if (
 
-                console.print("[red]工具执行失败[/red]")
-                console.print(result.get("error"))
+                action["action"] == "read_file"
 
-            # Tool 结果反馈给模型
+                and isinstance(result, dict)
 
-            current_input = f"""
-工具执行完成。
+                and result.get("success")
 
-Tool:
+            ):
 
-{action}
+                if "display" in result:
 
-Result:
+                    console.print(
 
-{result}
+                        result["display"]
 
-请根据结果继续下一步。
+                    )
 
-如果任务已经完成，再输出：
+                else:
 
-{{
-    "action":"final",
-    "answer":"..."
-}}
+                    console.print(
 
-否则继续输出下一步 Tool。
-"""
+                        result["content"]
+
+                    )
+
+                #
+                # 给 LLM 的必须是不带行号源码
+                #
+
+                self.memory.add_tool(
+
+                    result["content"]
+
+                )
+
+                continue
+
+            #
+            # search_code
+            #
+
+            if action["action"] == "search_code":
+
+                console.print(result)
+
+                self.memory.add_tool(
+
+                    str(result)
+
+                )
+
+                continue
+
+            #
+            # list_files
+            #
+
+            if action["action"] == "list_files":
+
+                console.print(result)
+
+                self.memory.add_tool(
+
+                    str(result)
+
+                )
+
+                continue
+
+            #
+            # replace_text
+            #
+
+            if action["action"] == "replace_text":
+
+                console.print(result)
+
+                self.memory.add_tool(
+
+                    str(result)
+
+                )
+
+                continue
+
+            #
+            # write_file
+            #
+
+            if action["action"] == "write_file":
+
+                console.print(result)
+
+                self.memory.add_tool(
+
+                    str(result)
+
+                )
+
+                continue
+
+            #
+            # run_python
+            #
+
+            if action["action"] == "run_python":
+
+                console.print(result)
+
+                self.memory.add_tool(
+
+                    str(result)
+
+                )
+
+                continue
+
+            #
+            # fallback
+            #
+
+            console.print(result)
+
+            self.memory.add_tool(
+
+                str(result)
+
+            )
+
+        #
+        # 超过最大循环
+        #
 
         console.print()
-        console.print("[red]达到最大执行次数[/red]")
 
-        return "达到最大执行次数，请重新描述任务。"
+        console.print(
+
+            "[red]达到最大循环次数[/red]"
+
+        )
+
+        return "达到最大循环次数，任务未完成。"

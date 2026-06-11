@@ -1,75 +1,70 @@
-import json
-import os
-
-from config import HISTORY_FILE
-
-
 class Memory:
+    """
+    对话记忆
+
+    保存：
+        user
+        assistant
+        tool
+
+    自动裁剪历史长度，避免上下文无限增长。
+    """
 
     def __init__(self):
 
-        self.history = []
+        self.messages = []
 
-        self.load()
+        # 保留最近 30 条消息
+        self.max_history = 30
+
+    def trim(self):
+
+        if len(self.messages) > self.max_history:
+
+            self.messages = self.messages[-self.max_history:]
 
     def add_user(self, text):
 
-        self.history.append(
+        self.messages.append(
             {
                 "role": "user",
-                "content": text
+                "content": str(text)
             }
         )
+
+        self.trim()
 
     def add_assistant(self, text):
 
-        self.history.append(
+        self.messages.append(
             {
                 "role": "assistant",
-                "content": text
+                "content": str(text)
             }
         )
 
+        self.trim()
+
+    def add_tool(self, text):
+
+        self.messages.append(
+            {
+                "role": "tool",
+                "content": str(text)
+            }
+        )
+
+        self.trim()
+
+    def get_messages(self):
+
+        return self.messages
+
+    # 兼容旧代码
     def get(self):
 
-        return self.history
+        return self.messages
 
     def clear(self):
 
-        self.history = []
-
-        self.save()
-
-    def save(self):
-
-        with open(
-            HISTORY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                self.history,
-                f,
-                ensure_ascii=False,
-                indent=4
-            )
-
-    def load(self):
-
-        if not os.path.exists(HISTORY_FILE):
-            return
-
-        try:
-
-            with open(
-                HISTORY_FILE,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
-                self.history = json.load(f)
-
-        except:
-
-            self.history = []
+        self.messages = []

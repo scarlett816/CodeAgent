@@ -1,29 +1,13 @@
-from tools.tool_registry import ToolRegistry
+from tools.tool_registry import TOOL_REGISTRY
 
 
 class Executor:
 
-    def __init__(self):
-
-        self.registry = ToolRegistry()
-
     def execute(self, action):
 
-        name = action.get("action")
+        action_name = action.get("action")
 
-        if name == "final":
-
-            return {
-
-                "success": True,
-
-                "final": True,
-
-                "result": action.get("answer", "")
-
-            }
-
-        tool = self.registry.get(name)
+        tool = TOOL_REGISTRY.get(action_name)
 
         if tool is None:
 
@@ -31,9 +15,7 @@ class Executor:
 
                 "success": False,
 
-                "final": False,
-
-                "result": f"未知工具：{name}"
+                "error": f"未知工具：{action_name}"
 
             }
 
@@ -49,10 +31,7 @@ class Executor:
 
         try:
 
-            result = tool(**kwargs)
-
-            # Tool 已经返回标准格式
-            return result
+            return tool(**kwargs)
 
         except Exception as e:
 

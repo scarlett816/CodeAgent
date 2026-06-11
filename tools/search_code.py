@@ -1,52 +1,129 @@
+import os
+
 from config import WORKSPACE
+
+
+IGNORE_DIRS = {
+
+    "__pycache__",
+
+    ".git",
+
+    ".idea",
+
+    ".vscode",
+
+    "venv",
+
+    "logs",
+
+    "memory"
+
+}
 
 
 def search_code(keyword: str):
 
-    matches = []
+    result = []
 
-    for path in WORKSPACE.rglob("*.py"):
+    for root, dirs, files in os.walk(WORKSPACE):
 
-        try:
+        dirs[:] = [
 
-            with open(
-                path,
-                "r",
-                encoding="utf-8"
-            ) as f:
+            d
 
-                lines = f.readlines()
+            for d in dirs
+
+            if d not in IGNORE_DIRS
+
+        ]
+
+        for file in files:
+
+            if not file.endswith(".py"):
+
+                continue
+
+            path = os.path.join(
+
+                root,
+
+                file
+
+            )
+
+            try:
+
+                with open(
+
+                    path,
+
+                    "r",
+
+                    encoding="utf-8"
+
+                ) as f:
+
+                    lines = f.readlines()
+
+            except:
+
+                continue
 
             for idx, line in enumerate(lines):
 
                 if keyword.lower() in line.lower():
 
-                    start = max(0, idx - 1)
-                    end = min(len(lines), idx + 2)
+                    start = max(
 
-                    context = "".join(lines[start:end])
+                        0,
 
-                    matches.append(
-                        {
-                            "file": str(
-                                path.relative_to(WORKSPACE)
-                            ),
-                            "line": idx + 1,
-                            "text": line.strip(),
-                            "context": context
-                        }
+                        idx - 1
+
                     )
 
-                    if len(matches) >= 20:
-                        break
+                    end = min(
 
-        except Exception:
-            pass
+                        len(lines),
 
-        if len(matches) >= 20:
-            break
+                        idx + 2
 
-    return {
-        "success": True,
-        "result": matches
-    }
+                    )
+
+                    context = "".join(
+
+                        lines[start:end]
+
+                    )
+
+                    result.append(
+
+                        {
+
+                            "file":
+
+                                os.path.relpath(
+
+                                    path,
+
+                                    WORKSPACE
+
+                                ),
+
+                            "line":
+
+                                idx + 1,
+
+                            "text":
+
+                                line.strip(),
+
+                            "context":
+
+                                context
+
+                        }
+
+                    )
+
+    return result

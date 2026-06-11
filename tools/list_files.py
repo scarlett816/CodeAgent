@@ -1,28 +1,63 @@
+import os
+
 from config import WORKSPACE
+
+
+IGNORE_DIRS = {
+
+    "__pycache__",
+
+    ".git",
+
+    ".idea",
+
+    ".vscode",
+
+    "venv",
+
+    "logs",
+
+    "memory"
+
+}
 
 
 def list_files():
 
-    files = []
+    result = []
 
-    for path in WORKSPACE.rglob("*"):
+    for root, dirs, files in os.walk(WORKSPACE):
 
-        if path.is_file():
+        dirs[:] = [
 
-            files.append(
+            d
 
-                str(
+            for d in dirs
 
-                    path.relative_to(WORKSPACE)
+            if d not in IGNORE_DIRS
 
-                )
+        ]
+
+        for file in files:
+
+            path = os.path.join(
+
+                root,
+
+                file
 
             )
 
-    return {
+            rel = os.path.relpath(
 
-        "success": True,
+                path,
 
-        "result": files
+                WORKSPACE
 
-    }
+            )
+
+            result.append(rel)
+
+    result.sort()
+
+    return result

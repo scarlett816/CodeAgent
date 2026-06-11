@@ -1,11 +1,12 @@
 import requests
 
 from config import (
-    OLLAMA_BASE_URL,
-    OLLAMA_MODEL,
-)
 
-from prompts import SYSTEM_PROMPT
+    OLLAMA_BASE_URL,
+
+    OLLAMA_MODEL,
+
+)
 
 
 class LLM:
@@ -16,30 +17,7 @@ class LLM:
 
         self.model = OLLAMA_MODEL
 
-    def chat(
-        self,
-        user_message,
-        history=None
-    ):
-
-        if history is None:
-            history = []
-
-        messages = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            }
-        ]
-
-        messages.extend(history)
-
-        messages.append(
-            {
-                "role": "user",
-                "content": user_message
-            }
-        )
+    def chat(self, messages):
 
         payload = {
 
@@ -52,9 +30,13 @@ class LLM:
         }
 
         response = requests.post(
+
             self.url,
+
             json=payload,
+
             timeout=600
+
         )
 
         response.raise_for_status()

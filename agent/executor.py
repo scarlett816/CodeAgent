@@ -1,44 +1,39 @@
-from tools.tool_registry import TOOL_REGISTRY
-
+from mcp.client import MCPClient
+from mcp.registry import MCPRegistry
+from mcp.servers.filesystem import FilesystemServer
 
 class Executor:
+    """
+    Executor
+    不直接调用 Tool，
+    所有请求统一交给 MCP Client。
+    """
 
-    def execute(self, action):
+    def __init__(self):
+        registry = MCPRegistry()
+        # 注册 Filesystem Server
+        registry.register(FilesystemServer())
+        self.client = MCPClient(registry)
 
-        action_name = action.get("action")
-
-        tool = TOOL_REGISTRY.get(action_name)
-
-        if tool is None:
-
+    def execute(self, action: dict):
+        if not isinstance(action, dict):
             return {
-
                 "success": False,
-
-                "error": f"未知工具：{action_name}"
-
+                "error": "action 必须是 dict"
             }
 
-        kwargs = {
+        tool_name = action.get("action")
 
-            k: v
-
-            for k, v in action.items()
-
-            if k != "action"
-
-        }
-
-        try:
-
-            return tool(**kwargs)
-
-        except Exception as e:
-
+        if tool_name is None:
             return {
-
                 "success": False,
-
-                "error": str(e)
-
+                "error": "缺少 action"
             }
+
+        kwargs = action.copy()
+        kwargs.pop("action", None)
+
+        return self.client.call(
+            tool_name,
+            **kwargs
+        )

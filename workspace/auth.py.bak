@@ -1,2 +1,9 @@
 def log():
     pass
+
+
+def logout():
+    pass
+
+def log():
+    pass

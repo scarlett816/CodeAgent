@@ -12,103 +12,44 @@ from agent.llm import LLM
 
 console = Console()
 
-
 def print_banner():
-
     console.print(
-
         Panel.fit(
-
             "[bold cyan]CodeAgent[/bold cyan]\n"
-
             "Local Coding Assistant",
-
             border_style="cyan"
-
         )
-
     )
 
-
 def main():
-
     print_banner()
-
     llm = LLM()
-
     agent = AgentLoop(llm)
-
     while True:
-
         try:
-
-            user_input = console.input(
-
-                "\n[bold green]User > [/bold green]"
-
-            ).strip()
-
+            user_input = console.input("\n[bold green]User > [/bold green]").strip()
             if not user_input:
-
                 continue
-
-            if user_input.lower() in [
-
-                "exit",
-
-                "quit",
-
-                "q"
-
-            ]:
-
-                console.print(
-
-                    "\n[yellow]Bye![/yellow]"
-
-                )
-
+            if user_input.lower() in ["exit","quit","q"]:
+                console.print("\n[yellow]Bye![/yellow]")
                 break
-
             result = agent.run(user_input)
-
             if result:
-
                 console.print()
-
                 console.print(
-
                     Panel(
-
                         result,
-
                         title="Agent",
-
                         border_style="blue"
-
                     )
-
                 )
 
         except KeyboardInterrupt:
-
-            console.print(
-
-                "\n[yellow]Interrupted[/yellow]"
-
-            )
-
+            console.print("\n[yellow]Interrupted[/yellow]")
             break
 
         except Exception as e:
-
-            console.print(
-
-                f"[red]Error:[/red] {e}"
-
-            )
-
+            console.print(f"[red]Error:[/red] {e}")
 
 if __name__ == "__main__":
-
     main()
